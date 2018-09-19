@@ -1,0 +1,205 @@
+<html>
+	<head>
+		<title>Pr</title>
+	</head>
+	
+	<body>
+		<canvas id="canvas" width="1000" height="600" style="border:1px solid #000000;"></canvas>
+	</body>
+	
+	<script>
+		"use strict"
+		
+		function scalV3(x1, y1, z1, x2, y2, z2)
+		{
+			return x1*x2 + y1*y2 + z1*z2;
+		}
+		
+		
+		function distV3(x1, y1, z1, x2, y2, z2)
+		{
+			var wx = x2 - x1;
+			var wy = y2 - y1;
+			var wz = z2 - z1;
+			
+			wx *= wx;
+			wy *= wy;
+			wz *= wz;
+			
+			return Math.sqrt(wx + wy + wz);
+		}
+		
+		
+		function createSphere(s, sn, x, y, z, r, cr, cg, cb)
+		{
+			s[sn.v] = {
+				x: x,
+				y: y,
+				z: z,
+				r: r,
+				cr: cr,
+				cg: cg,
+				cb: cb
+			};
+			
+			sn.v++;
+		}
+		
+		
+		function getRandomInt(min, max)
+		{
+			return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+
+	
+		var c, ctx;
+		var winW = 1000, winH = 600;
+		var winW2 = winW / 2, winH2 = winH / 2;
+		
+		var FOV = (winW + winH) / 2;
+		
+		var i, j;
+		var x, y;
+		
+		var s = [];
+		var sn = {v : 0};
+		
+		createSphere(s, sn, 0, -5, 120, 15, 255, 0, 0);
+		createSphere(s, sn, -110, 0, 300, 100, 0, 0, 255);	
+		
+		var light = {
+			x: 60,
+			y: -30,
+			z: 14			
+		};
+		
+		c = document.getElementById("canvas");
+		ctx = c.getContext("2d");
+
+		ctx.clearRect(0, 0, winW, winH);
+		
+		for(y = -winH2; y < winH; ++y)
+		{
+			for(x = -winW2; x < winW2; ++x)
+			{	
+				var tmin = 99999999;
+				var minid = 0;
+				
+				for(i = 0; i < sn.v; ++i)
+				{
+					var k1 = scalV3(x, y, FOV, x, y, FOV);
+					var k2 = 2*scalV3(s[i].x, s[i].y, s[i].z, x, y, FOV)
+					var k3 = scalV3(s[i].x, s[i].y, s[i].z, s[i].x, s[i].y, s[i].z) - s[i].r*s[i].r;
+
+					var discriminant = k2*k2 - 4*k1*k3;
+					
+					if (discriminant >= 0) {
+						var t1 = (-k2 + Math.sqrt(discriminant)) / (2*k1);
+						var t2 = (-k2 - Math.sqrt(discriminant)) / (2*k1);
+						
+						t1 *= -1;
+						t2 *= -1;
+						
+						var t;
+						if(t1 <= t2)
+							t = t1;
+						else
+							t = t2;
+							
+						if(t > 0)
+						{
+							if(t < tmin)
+							{
+								tmin = t;
+							}
+						}
+					}
+				}
+				
+				if(tmin != 99999999)
+				{
+					var px = tmin*x;
+					var py = tmin*y;
+					var pz = tmin*FOV;
+					
+					var flag = 0;
+					var tmin2 = 99999999;
+					
+					for(i = 0; i < sn.v; ++i)
+					{
+						var vx = px - light.x;
+						var vy = py - light.y;
+						var vz = pz - light.z;
+						
+						var sposx = s[i].x - light.x;
+						var sposy = s[i].y - light.y;
+						var sposz = s[i].z - light.z;
+						
+						k1 = scalV3(vx, vy, vz, vx, vy, vz);
+						k2 = 2*scalV3(sposx, sposy, sposz, vx, vy, vz)
+						k3 = scalV3(sposx, sposy, sposz, sposx, sposy, sposz) - s[i].r*s[i].r;
+						
+						discriminant = k2*k2 - 4*k1*k3;
+					
+						if (discriminant >= 0) {
+							t1 = (-k2 + Math.sqrt(discriminant)) / (2*k1);
+							t2 = (-k2 - Math.sqrt(discriminant)) / (2*k1);
+							
+							t1 *= -1;
+							t2 *= -1;
+							
+							if(Math.abs(1 - t1) < 0.001)
+							{
+								minid = i;
+								flag = 1;
+							}
+								
+							if(Math.abs(1 - t2) < 0.001)
+							{
+								minid = i;
+								flag = 1;
+							}
+							
+							if(t1 <= t2)
+								t = t1;
+							else
+								t = t2;
+								
+							if(t > 0)
+							{
+								if(t < tmin2)
+								{
+									tmin2 = t;
+								}
+							}
+						}
+					}
+					
+					ctx.fillStyle = "#000000";
+					ctx.fillRect(winW2 + x, winH2 + y, 1, 1);
+					
+					if(flag == 1)
+					{
+						if(tmin2 > 0.999)
+						{
+							var vx = px - s[minid].x;
+							var vy = py - s[minid].y;
+							var vz = pz - s[minid].z;
+							
+							var lx = px - light.x;
+							var ly = py - light.y;
+							var lz = pz - light.z;
+							
+							var cos = scalV3(vx, vy, vz, lx, ly, lz) / (Math.sqrt(vx*vx+vy*vy+vz*vz) * Math.sqrt(lx*lx + ly*ly + lz*lz));
+							
+							cos *= -1;
+							
+							ctx.fillStyle = "rgb("+Math.round(s[minid].cr*cos)+","+Math.round(s[minid].cg*cos)+","+Math.round(s[minid].cb*cos)+")";
+							ctx.fillRect(winW2 + x, winH2 + y, 1, 1);
+						}
+					}
+				}
+			}
+		}
+	</script>
+</html>
